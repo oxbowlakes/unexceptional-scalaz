@@ -1,0 +1,4 @@
+Ticker, Quantity, Price, TradedCurrency, Rate (USD)
+VOD LN,100,205,GBX,156
+BP LN,200,1.26,GBX,156
+FIA MI,54,23.45,EUR,234
