@@ -40,6 +40,8 @@ object SanityCheckRates2 extends App with Logged {
     case class Config(pathToRates: String, pathToOfficial: String)
 
     type M[A] = ReaderWriterStateT[effect.IO, Config, Unit, Unit, A]
+
+    /* Rename Program to Returns and construct intermediate Throws type as this will be useful for any call to a library wanting a MonadError */
     type Throws[E, A] = EitherT[M, E, A]
     type Returns[A] = Throws[E, A]
     object Program {
@@ -71,7 +73,7 @@ object SanityCheckRates2 extends App with Logged {
           s <- Program.reads(_.pathToOfficial)
           p <- Program.either(Option(getClass.getResource(s)).toRightDisjunction[E](NoSuchResource(s)))
           ls <- IOUtil.readAllLines1[Throws](Paths get p.toURI)(Program.monadErrorThrowable).leftMap(ioException)
-          csv <- toCsv(ls.toStream)                                                          // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          csv <- toCsv(ls.toStream)                          // ^^^^^^^^^^^^^^^^^^^^^^^^^^^
           x <- csv parseZero { indices => line =>
                 State.modify[OfficialRates](o => {
                   val cells = line.split(",")
@@ -116,7 +118,7 @@ object SanityCheckRates2 extends App with Logged {
       for {
         s <- Program.reads(_.pathToRates)
         p <- Program.either(Option(this.getClass.getResource(s)).toRightDisjunction[E](NoSuchResource(s)))
-        ls <- IOUtil.readAllLines[Throws, E](Paths get p.toURI)(ioException)
+        ls <- IOUtil.readAllLines[Throws, E](Paths get p.toURI)(ioException) //Look Ma, no hands!
         csv <- toCsv(ls.toStream)
         x <- csv parseZero { indices => line =>
           State.modify[Rates](rs => {

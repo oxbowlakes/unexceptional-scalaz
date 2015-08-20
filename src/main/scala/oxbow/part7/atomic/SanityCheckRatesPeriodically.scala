@@ -95,10 +95,6 @@ object SanityCheckRatesPeriodically extends App with Logged {
         case header #:: data => Program.unit(Csv(header.split(",").toStream.map(_.trim).zipWithIndex.toMap, data))
       }
 
-    // I've built up some useful combinators (in the Program module)
-    // They are boilerplate I keep needing to repeat :-(
-    // Each component of my program is a structure that produces a value and handles error (and may access config, if needed)
-
     def brokerRates: Program[Rates] =
       for (p <- Program.reads(_.pathToRates); ls <- readAllLines(p); csv <- toCsv(ls); x <- csv parseZero { indices => line =>
       State.modify[Rates](rs => {
@@ -122,6 +118,7 @@ object SanityCheckRatesPeriodically extends App with Logged {
 
     val cfg = Config("/mnt/live/rates/deutsche/2015/09/trades-20150919.csv", "/mnt/live/rates/deutsche/2015/09/official-20150918.csv")
 
+    // Here is our state
     val state = new AtomicReference[Map[Currency, BigDecimal]](Map.empty[Currency, BigDecimal])
 
     //Let's say this starts up at midnight and runs every 15 minutes until rates arrive

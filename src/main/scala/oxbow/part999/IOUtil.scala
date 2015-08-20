@@ -7,15 +7,11 @@ import scalaz._
 
 object IOUtil {
 
-   /**
-    * Allow the caller to inject how to translate a Throwable into their own error representation
-    */
    def readAllLines[M[_,_], E](p: Path)(mapError: Throwable => E)(implicit M: MonadError[M, E], N: effect.MonadCatchIO[({type l[a] = M[E, a]})#l]): M[E, List[String]] = {
      import collection.JavaConverters._
      N.except(N.liftIO(effect.IO { java.nio.file.Files.readAllLines(p).asScala.toList }))(t => M.raiseError(mapError(t)))
    }
 
-   /* For some reason, scalaz does not supply MonadCatchIO instances for EitherT, ReaderWriterStateT */
    import effect._
    implicit def eitherTMonadCatchIO[M[_]: MonadCatchIO, E] = new MonadCatchIO[({type l[a]=EitherT[M, E, a]})#l] {
      val EitherTMonadIO = MonadIO.eitherTMonadIO[M, E]

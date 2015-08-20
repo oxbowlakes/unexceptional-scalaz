@@ -38,7 +38,7 @@ package object outro {
       }
     }
 
-    //Can be "simplified" further
+    //Can be "simplified" further using ifM
     def testAndSet[M[_]: Monad, E, A](p: S => M[Boolean])(s: Transition[M, E, A]): EitherT[M, E, Option[A]] = {
       val M = Monad[M]
       EitherT {

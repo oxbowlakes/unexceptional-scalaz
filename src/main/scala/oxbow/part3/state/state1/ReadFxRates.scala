@@ -34,6 +34,7 @@ object ReadFxRates extends App {
   case class Csv(indices: Map[String, Int], rows: Stream[String]) {
     def parse: E \/ (Rates, List[Trade]) = {
 
+      /* Example of a State transition */
       def processRow(line: String) = State[Rates, Trade] { rates =>
         val cells = line.split(",")
         //Could be more detailed here of course

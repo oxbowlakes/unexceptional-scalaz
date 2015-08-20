@@ -31,9 +31,8 @@ object IOUtil {
   }
 
   /*
-   * We actually want to use MonadCatchIO. This allows us to call this function from any computational context which has a way
+   * We actually should use MonadCatchIO. This allows us to call this function from any computational context which has a way
    * of handling errors and performing IO
-   *
    */
   def readAllLines3[M[_,_]](p: Path)(implicit M: MonadError[M, Throwable], N: effect.MonadCatchIO[({type l[a] = M[Throwable, a]})#l]): M[Throwable, List[String]] = {
     import collection.JavaConverters._

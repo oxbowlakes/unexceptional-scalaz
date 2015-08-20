@@ -73,7 +73,7 @@ object SanityCheckRates extends App with Logged {
           s <- Program.reads(_.pathToOfficial)
           p <- Program.either(Option(getClass.getResource(s)).toRightDisjunction[E](NoSuchResource(s)))
           ls <- IOUtil.readAllLines1[({type l[a, b] = EitherT[M, a, b]})#l](Paths get p.toURI)(Program.monadErrorThrowable).leftMap(ioException)
-          csv <- toCsv(ls.toStream)                                                          // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          csv <- toCsv(ls.toStream)                                                          // ^^^^^^^^^^^^^^^^^^^^^^^^^^
           x <- csv parseZero { indices => line =>
                 State.modify[OfficialRates](o => {
                   val cells = line.split(",")
