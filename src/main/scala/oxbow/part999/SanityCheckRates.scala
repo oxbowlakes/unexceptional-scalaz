@@ -16,44 +16,25 @@ object SanityCheckRates extends Program[Config, Unit, E] with App {
       s <- reads(_.pathToOfficial)
       p <- either(Option(this.getClass.getResource(s)).toRightDisjunction[E](NoSuchResource(s)))
       ls <- IOUtil.readAllLines[Throws, E](Paths get p.toURI)(ioException)
-      csv <- toCsv(ls.toStream)
-      x <- csv parseZero { indices => line =>
-        State.modify[OfficialRates](o => {
-          val cells = line.split(",")
-          o +((Currency.valueOf(cells(indices("Currency1"))), Currency.valueOf(cells(indices("Currency2")))), BigDecimal(cells(indices("Rate"))))
-        })
+      a <- Csv.parseExecZero[Throws, E, OfficialRates, Unit](ls.toStream)(parseException) { cells =>
+                State.modify[OfficialRates](_ +((Currency.valueOf(cells("Currency1")), Currency.valueOf(cells("Currency2"))), BigDecimal(cells("Rate"))))
       }
-      (a, b) = x }
-      yield a
+    }
+    yield a
   }
 
-  case class Csv(indices: Map[String, Int], rows: Stream[String]) {
-    def parse[S, A](processRow: Map[String, Int] => String => State[S, A])(s: S): Returns[(S, List[A])] = {
 
-      either( \/.fromTryCatchNonFatal(rows.toList.traverseU(processRow(indices)).run(s)).leftMap(ParseException) )
-    }
-    def parseZero[S: Monoid, A](processRow: Map[String, Int] => String => State[S, A]): Returns[(S, List[A])] = parse(processRow)(Monoid[S].zero)
-  }
-
-  def toCsv(lines: Stream[String]): Returns[Csv] =
-    lines match {
-      case Stream.Empty    => fail(NoHeader)
-      case header #:: data => unit(Csv(header.split(",").toStream.map(_.trim).zipWithIndex.toMap, data))
-    }
 
   def brokerRates2: Returns[Rates] = {
     for {
       s <- reads(_.pathToRates)
       p <- either(Option(this.getClass.getResource(s)).toRightDisjunction[E](NoSuchResource(s)))
-      ls <- IOUtil.readAllLines[Throws, E](Paths get p.toURI)(ioException)
-      csv <- toCsv(ls.toStream)
-      x <- csv parseZero { indices => line =>
-        State.modify[Rates](rs => {
-          val cells = line.split(",")
-          rs +(Currency.valueOf(cells(indices("TradedCurrency"))), Currency.USD, BigDecimal(cells(indices("Rate (USD)"))))
-        })
-      }
-      (a, b) = x
+      a <- Csv.parseExecZeroIO[Throws, E, Rates, Unit](Paths get p.toURI)({
+              case e: java.io.IOException => ioException(e)
+              case t: Throwable           => parseException(t)
+           }) { cells =>
+              State.modify[Rates](_ + (Currency.valueOf(cells("TradedCurrency")), Currency.USD, BigDecimal(cells("Rate (USD)"))))
+            }
     } yield a
   }
 

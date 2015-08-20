@@ -8,8 +8,8 @@ package object part999 {
   case class NoSuchResource(path: String) extends E
   case class IOException(underlying: Throwable) extends E with UnderlyingThrowable
   def ioException(t: Throwable): E = IOException(t)
-  case object NoHeader extends E
-  case class ParseException(t: Throwable) extends E
+  case class ParseException(underlying: Throwable) extends E with UnderlyingThrowable
+  def parseException(t: Throwable): E = ParseException(t)
   case class MismatchedRates(ccy: Currency, r1: BigDecimal, r2: BigDecimal) extends E
 
   class Ticker(val symbol: String) extends AnyVal
