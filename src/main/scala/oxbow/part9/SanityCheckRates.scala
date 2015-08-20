@@ -10,7 +10,7 @@ import scalaz.Scalaz._
 import scalaz._
 import scalaz.effect.IO
 
-object SanityCheckRatesPeriodically extends App with Logged {
+object SanityCheckRates extends App with Logged {
     sealed trait E
     case class NoSuchResource(path: String) extends E
     case class IOException(underlying: Throwable) extends E with UnderlyingThrowable
@@ -43,7 +43,8 @@ object SanityCheckRatesPeriodically extends App with Logged {
     case class Config(pathToRates: String, pathToOfficial: String)
 
     type M[A] = ReaderWriterStateT[effect.IO, Config, Unit, Unit, A]
-    type Program[A] = EitherT[M, E, A]
+    type ProgramError[E, A] = EitherT[M, E, A]
+    type Program[A] = ProgramError[E, A]
     object Program {
 
       def io[A](f: Config => effect.IO[E \/ A]): Program[A] = EitherT.eitherT[M, E, A](RWST[effect.IO, Config, Unit, Unit, E \/ A]((config, s) => f(config).map(x => ((), x, s))))
@@ -59,13 +60,19 @@ object SanityCheckRatesPeriodically extends App with Logged {
 
       def tell(w: => Unit): Program[Unit] = EitherT.right[M, E, Unit](RWST[effect.IO, Config, Unit, Unit, Unit]((config, s) => effect.IO((w, (), ()))))
 
+
+      def monadErrorThrowable = EitherT.eitherTMonadError[M, Throwable]
+      def monadCatchIOThrowable = IOUtil.eitherTMonadCatchIO[({type l[a]=RWST[effect.IO, Config, Unit, Unit, a]})#l, Throwable](IOUtil.rwstMonadCatchIO[effect.IO, Config, Unit, Unit])
+
+      implicit def monadError = EitherT.eitherTMonadError[M, E]
+      implicit def monadCatchIO = IOUtil.eitherTMonadCatchIO[({type l[a]=RWST[effect.IO, Config, Unit, Unit, a]})#l, E](IOUtil.rwstMonadCatchIO[effect.IO, Config, Unit, Unit])
     }
 
     def officialRates: Program[OfficialRates] = {
         for {
           s <- Program.reads(_.pathToOfficial)
           p <- Program.either(Option(getClass.getResource(s)).toRightDisjunction[E](NoSuchResource(s)))
-          ls <- IOUtil.readAllLines1[({type l[a, b] = EitherT[M, a, b]})#l](Paths get p.toURI)(EitherT.eitherTMonadError[M, Throwable]).leftMap(ioException)
+          ls <- IOUtil.readAllLines1[({type l[a, b] = EitherT[M, a, b]})#l](Paths get p.toURI)(Program.monadErrorThrowable).leftMap(ioException)
           csv <- toCsv(ls.toStream)                                                          // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           x <- csv parseZero { indices => line =>
                 State.modify[OfficialRates](o => {
@@ -95,8 +102,8 @@ object SanityCheckRatesPeriodically extends App with Logged {
       for  {
         s <- Program.reads(_.pathToRates)
         p <- Program.either(Option(getClass.getResource(s)).toRightDisjunction[E](NoSuchResource(s)))
-        ls <- IOUtil.readAllLines[({type l[a, b] = EitherT[M, a, b]})#l](Paths get p.toURI)(EitherT.eitherTMonadError[M, Throwable], IOUtil.eitherTMonadCatchIO[M, Throwable](IOUtil.rwstMonadCatchIO[effect.IO, Config, Unit, Unit])).leftMap(ioException)
-        csv <- toCsv(ls.toStream)                                                         // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        ls <- IOUtil.readAllLines3[({type l[a, b] = EitherT[M, a, b]})#l](Paths get p.toURI)(Program.monadErrorThrowable, Program.monadCatchIOThrowable).leftMap(ioException)
+        csv <- toCsv(ls.toStream)                                                         // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         x <- csv parseZero { indices => line =>
           State.modify[Rates](rs => {
             val cells = line.split(",")
@@ -106,42 +113,33 @@ object SanityCheckRatesPeriodically extends App with Logged {
         (a, b) = x
       } yield a
 
+    def brokerRates2: Program[Rates] = {
+      import Program._
+      for {
+        s <- Program.reads(_.pathToRates)
+        p <- Program.either(Option(this.getClass.getResource(s)).toRightDisjunction[E](NoSuchResource(s)))
+        ls <- IOUtil.readAllLines[ProgramError, E](Paths get p.toURI)(ioException)
+        csv <- toCsv(ls.toStream)
+        x <- csv parseZero { indices => line =>
+          State.modify[Rates](rs => {
+            val cells = line.split(",")
+            rs +(Currency.valueOf(cells(indices("TradedCurrency"))), Currency.USD, BigDecimal(cells(indices("Rate (USD)"))))
+          })
+        }
+        (a, b) = x
+      } yield a
+    }
+
     def sanitized(o: OfficialRates, b: Map[Currency, BigDecimal]) = b
 
     val rates =
       for {
         o <- officialRates
         _ <- Program.tell(info(s"Official rates are $o"))
-        b <- brokerRates
+        b <- brokerRates2
         _ <- Program.tell(info(s"Broker rates are $b"))
         v <- b.verifiedUSD
         _ <- Program.tell(info(s"Verified rates are $v"))
       } yield sanitized(o, v)
-
-
-    val cfg = Config("/mnt/live/rates/deutsche/2015/09/trades-20150919.csv", "/mnt/live/rates/deutsche/2015/09/official-20150918.csv")
-
-    val state = new AtomicReference[Map[Currency, BigDecimal]](Map.empty[Currency, BigDecimal])
-
-
-    Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(new Runnable {
-      override def run() = {
-        type ST[A] = StateT[effect.IO, Map[Currency, BigDecimal], A]
-        val et: EitherT[ST, E, Unit] =
-          EitherT[ST, E, Unit](StateT[effect.IO, Map[Currency, BigDecimal], E \/ Unit] { s => {
-            rates.run.run(cfg, ()) map {
-              case (_, -\/(e), _) => (Map.empty[Currency, BigDecimal], -\/(e))
-              case (_, \/-(a), _) => (a, \/-(()))
-            }
-          }})
-
-        val update =
-          state.testAndSet[effect.IO, E, Unit](m => effect.IO { m.isEmpty })(et)
-        update.run.unsafePerformIO().valueOr(e => warning(e.toString))
-      }
-    }, 0, 15, TimeUnit.MINUTES)
-
-
-
 
 }

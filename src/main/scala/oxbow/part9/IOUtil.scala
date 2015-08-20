@@ -20,21 +20,32 @@ object IOUtil {
   }
 
   /*
-   * We can use MonadIO
+   * We can use MonadIO. Basically this allows us to do IO in a library and yet have the result be an `M` for the call-site `M`
    */
   def readAllLines2[M[_,_]](p: Path)(implicit M: MonadError[M, Throwable], N: effect.MonadIO[({type l[a] = M[Throwable, a]})#l]): M[Throwable, List[String]] = {
     import collection.JavaConverters._
 
-    M.bind(N.liftIO(effect.IO { \/.fromTryCatchNonFatal(java.nio.file.Files.readAllLines(p)) }))(_.fold(M.raiseError, ls => M.point(ls.asScala.toList)))
+    M.bind(N.liftIO(effect.IO {
+      \/.fromTryCatchNonFatal(java.nio.file.Files.readAllLines(p))
+    }))(_.fold(M.raiseError, ls => M.point(ls.asScala.toList)))
   }
 
   /*
-   * We actually want to use MonadCatchIO. This allows us to call this function from any computational context which has a way of handling errors and performing IO
+   * We actually want to use MonadCatchIO. This allows us to call this function from any computational context which has a way
+   * of handling errors and performing IO
    *
    */
-  def readAllLines[M[_,_]](p: Path)(implicit M: MonadError[M, Throwable], N: effect.MonadCatchIO[({type l[a] = M[Throwable, a]})#l]): M[Throwable, List[String]] = {
+  def readAllLines3[M[_,_]](p: Path)(implicit M: MonadError[M, Throwable], N: effect.MonadCatchIO[({type l[a] = M[Throwable, a]})#l]): M[Throwable, List[String]] = {
     import collection.JavaConverters._
     N.except(N.liftIO(effect.IO { java.nio.file.Files.readAllLines(p).asScala.toList }))(M.raiseError)
+  }
+
+  /**
+   * Allow the caller to inject how to translate a Throwable into their own error representation
+   */
+  def readAllLines[M[_,_], E](p: Path)(mapError: Throwable => E)(implicit M: MonadError[M, E], N: effect.MonadCatchIO[({type l[a] = M[E, a]})#l]): M[E, List[String]] = {
+    import collection.JavaConverters._
+    N.except(N.liftIO(effect.IO { java.nio.file.Files.readAllLines(p).asScala.toList }))(t => M.raiseError(mapError(t)))
   }
 
   /* For some reason, scalaz does not supply MonadCatchIO instances for EitherT, ReaderWriterStateT */
@@ -70,8 +81,7 @@ object IOUtil {
 
     override def except[A](ma: RWST[M, R, W, S, A])(handler: (Throwable) => RWST[M, R, W, S, A]) = RWST[M, R, W, S, A]{ (r, s) =>
       val M = MonadCatchIO[M]
-      val a: M[Throwable \/ (W, A, S)] = M.except(ma.run(r, s) map { case x @ (w, a, s) => \/.right[Throwable, (W, A, S)](x) })(t => M.point(-\/(t)))
-      M.bind(a) {
+      M.bind(M.except(ma.run(r, s) map { \/.right[Throwable, (W, A, S)] })(t => M.point(-\/(t)))) {
         case \/-(x) => M.point(x)
         case -\/(t) => handler(t).run(r, s)
       }
