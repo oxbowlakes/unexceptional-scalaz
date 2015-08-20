@@ -71,9 +71,11 @@ Let's take control of that (`part5.readert`) (3 minutes, 54)
 
   - The previous example has not really used State, so I want to think a little bit about how you might manage state in some  long-running program with a given set of interactions. 
   One mechanism I use is to insert the global state into an atomic reference and apply state transitions to it (`part7.atomic`) (9 minutes, 70)
-    * We construct a simple `testAndSet` (2 minutes)
-    * We extend our testAndSet to a simple State transition (with optional return) (2 minutes)
-    * We extend this to StateT in order that we can run our actions inside IO (5 minutes)
+  
+  - We ....
+    * construct a simple `testAndSet` (2 minutes)
+    * extend our testAndSet to a simple State transition (with optional return) (2 minutes)
+    * extend this to StateT in order that we can run our actions inside IO (5 minutes)
 
 But we haven't considered exceptions in this (`part8.outro`) (might gloss over the detail of pulling the StateT out of a RWST, suffice to say it's `state`)
 
