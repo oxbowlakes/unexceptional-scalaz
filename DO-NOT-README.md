@@ -46,20 +46,20 @@ Statement (SLIDE)
 
 ## Reader
   - We have hijacked the return type of our functions to describe only one aspect of that function's interaction with the real world
-             there are other aspects (State being one, reading from config being another)
+ - there are other aspects (State being one, reading from config being another)
 
-   - We can embed these concerns in the very type of our program (part4.reader)
-             We create a type plus some type constructors, based on a single base-combinator
+ - We can embed these concerns in the very type of our program (part4.reader)
+  * We create a type plus some type constructors, based on a single base-combinator
 
-             The strength of our program is now in how it is composed of small pieces that can all be individually-reasoned about
-             Refactoring and modification becomes easy because the pieces cannot affect global state except via their order
-             But what about IO? This is just global state. We canot have referential transparency in order to pull apart and re-combne our programs
-             if they mutate state
-             Let's take control of that (part5.readert)
+The strength of our program is now in how it is composed of small pieces that can all be individually-reasoned about
+Refactoring and modification becomes easy because the pieces cannot affect global state except via their order
+But what about IO? This is just global state. We canot have referential transparency in order to pull apart and re-combne our programs if they mutate state.
+
+Let's take control of that (part5.readert)
 
 ## RWST  
   - Let's just throw the whole kitchen sink in and admit that our program is very possibly dealing with state as well   
-    * I tend you use Unit as W because accumulation of log messages is both unrealistic and annoying (when they are not interleaved with those of imperative APIs) (part6.rwst)
+    * I tend to use Unit as W because accumulation of log messages is both unrealistic and annoying (when they are not interleaved with those of imperative APIs) (part6.rwst)
 
   - The previous example has not really used State, so I want to think a little bit about how you might manage state in some 
              long-running program with a given set of interactions. One mechanism I use is to insert the glbal state into an atomic reference and apply state transitions to it (part7.atomic)
