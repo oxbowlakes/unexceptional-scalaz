@@ -21,7 +21,9 @@ package object outro {
           yield s2
       }
     }
-    def testAndSet[M[_]: Monad, E, A](p: S => M[Boolean])(s: Transition[M, E, A]): EitherT[M, E, Option[A]] = {
+
+    //So this instead
+    def testAndSet2[M[_]: Monad, E, A](p: S => M[Boolean])(s: Transition[M, E, A]): EitherT[M, E, Option[A]] = {
       val M = Monad[M]
       EitherT {
         for {
@@ -29,9 +31,24 @@ package object outro {
           b <- p(s1)
           s2 <- if (b) s.run.run(s1) flatMap {
             case (_, -\/(e))  => \/.left[E, Option[A]](e).point[M]
-            case (s2, \/-(a)) => if (!self.compareAndSet(s1, s2)) testAndSet(p)(s).run else \/.right[E, Option[A]](some(a)).point[M]
+            case (s2, \/-(a)) => if (!self.compareAndSet(s1, s2)) testAndSet2(p)(s).run else \/.right[E, Option[A]](some(a)).point[M]
           } else \/.right(none[A]).point[M]
         }
+          yield s2
+      }
+    }
+
+    //Can be "simplified" further
+    def testAndSet[M[_]: Monad, E, A](p: S => M[Boolean])(s: Transition[M, E, A]): EitherT[M, E, Option[A]] = {
+      val M = Monad[M]
+      EitherT {
+        for {
+          s1 <- M.point(self.get)
+          s2 <- p(s1).ifM(s.run.run(s1) flatMap {
+                case (_, -\/(e))  => \/.left[E, Option[A]](e).point[M]
+                case (s2, \/-(a)) => if (!self.compareAndSet(s1, s2)) testAndSet(p)(s).run else \/.right[E, Option[A]](some(a)).point[M]
+              }, \/.right[E, Option[A]](none[A]).point[M])
+        }                ///////////// inference :-(
           yield s2
       }
     }

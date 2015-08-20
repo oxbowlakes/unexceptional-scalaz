@@ -139,6 +139,7 @@ object SanityCheckRatesPeriodically extends App with Logged {
   //
   // 1. We have a single piece of mutable state, protected in an atomic reference
   // 2. We compose a program as a state transition which can be applied to that state
-  //     You might envisage that you are running an HTTP server and each request maps to some state-transition action
+  //
+  // But ... we have not handled errors
 
 }

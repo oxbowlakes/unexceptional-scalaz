@@ -10,9 +10,9 @@ package object disjunction2 {
 *
 * filter
 *
-* getOrElse
+* getOrElse |
 * orElse
-* valueOr
+* valueOr |||
 *
 * +++
 *

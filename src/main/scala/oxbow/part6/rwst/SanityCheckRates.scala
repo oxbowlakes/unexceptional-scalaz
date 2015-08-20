@@ -37,12 +37,9 @@ object SanityCheckRates extends App with Logged {
 
    case class Config(pathToRates: String, pathToOfficial: String)
 
-   //OK, but why not embed the fact the failure in the Program itself? And IO
-
    type M[A] = ReaderWriterStateT[effect.IO, Config, Unit, Unit, A]
    type Program[A] = EitherT[M, E, A]
    object Program {
-     /* Notice that we've made IO the 'root' combinator now, not apply */
 
      def io[A](f: Config => effect.IO[E \/ A]): Program[A] = EitherT.eitherT[M, E, A](RWST[effect.IO, Config, Unit, Unit, E \/ A]((config, s) => f(config).map(x => ((), x, s))))
      def apply[A](f: Config => E \/ A): Program[A] = io(f andThen (_.point[effect.IO]))
@@ -91,10 +88,6 @@ object SanityCheckRates extends App with Logged {
        case Stream.Empty    => Program.fail(NoHeader)
        case header #:: data => Program.unit(Csv(header.split(",").toStream.map(_.trim).zipWithIndex.toMap, data))
      }
-
-   // I've built up some useful combinators (in the Program module)
-   // They are boilerplate I keep needing to repeat :-(
-   // Each component of my program is a structure that produces a value and handles error (and may access config, if needed)
 
    def brokerRates: Program[Rates] =
      for (p <- Program.reads(_.pathToRates); ls <- readAllLines(p); csv <- toCsv(ls); x <- csv parseZero { indices => line =>

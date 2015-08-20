@@ -18,9 +18,6 @@ object ReadFxRates extends App {
   case class Trade(ticker: Ticker, quantity: Int, price: BigDecimal)
   case class Rates(rs: List[(Currency, Currency, BigDecimal)]) {
     def verifiedUSD: E \/ Map[Currency, BigDecimal] = (\/.right[E, Map[Currency, BigDecimal]](Map.empty) /: (rs.toStream collect { case (c, Currency.USD, r) => c -> r})) { case (d, p @ (c, r)) =>
-      //If fail, fail
-      //If success and c is present with different r, fail
-      //Else success and add c -> r
       d.flatMap(rs => rs.get(c).fold(\/.right[E, Map[Currency, BigDecimal]](rs + p))( rr => if (r == rr) d else \/.left(MismatchedRates(c, rr, r))))
     }
 

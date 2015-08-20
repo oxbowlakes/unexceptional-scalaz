@@ -1,4 +1,4 @@
-package oxbow.part8.outro
+package oxbow.part9
 
 import java.nio.file.{Files, Paths}
 import java.util.concurrent.atomic.AtomicReference
@@ -6,14 +6,15 @@ import java.util.concurrent.{Executors, TimeUnit}
 
 import oxbow.support.{Currency, Logged, UnderlyingThrowable}
 
-import scalaz.Leibniz.===
 import scalaz.Scalaz._
 import scalaz._
+import scalaz.effect.IO
 
 object SanityCheckRatesPeriodically extends App with Logged {
     sealed trait E
     case class NoSuchResource(path: String) extends E
     case class IOException(underlying: Throwable) extends E with UnderlyingThrowable
+    def ioException(t: Throwable): E = IOException(t)
     case object NoHeader extends E
     case class ParseException(t: Throwable) extends E
     case class MismatchedRates(ccy: Currency, r1: BigDecimal, r2: BigDecimal) extends E
@@ -57,24 +58,24 @@ object SanityCheckRatesPeriodically extends App with Logged {
       def reads[A](f: Config => A): Program[A] = apply(f andThen \/.right)
 
       def tell(w: => Unit): Program[Unit] = EitherT.right[M, E, Unit](RWST[effect.IO, Config, Unit, Unit, Unit]((config, s) => effect.IO((w, (), ()))))
+
     }
 
     def officialRates: Program[OfficialRates] = {
-        for (p <- Program.reads(_.pathToOfficial); ls <- readAllLines(p); csv <- toCsv(ls); x <- csv parseZero { indices => line =>
-          State.modify[OfficialRates](o => {
-            val cells = line.split(",")
-            o +((Currency.valueOf(cells(indices("Currency1"))), Currency.valueOf(cells(indices("Currency2")))), BigDecimal(cells(indices("Rate"))))
-          })
-        }; (a, b) = x) yield a
+        for {
+          s <- Program.reads(_.pathToOfficial)
+          p <- Program.either(Option(getClass.getResource(s)).toRightDisjunction[E](NoSuchResource(s)))
+          ls <- IOUtil.readAllLines1[({type l[a, b] = EitherT[M, a, b]})#l](Paths get p.toURI)(EitherT.eitherTMonadError[M, Throwable]).leftMap(ioException)
+          csv <- toCsv(ls.toStream)                                                          // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          x <- csv parseZero { indices => line =>
+                State.modify[OfficialRates](o => {
+                  val cells = line.split(",")
+                  o +((Currency.valueOf(cells(indices("Currency1"))), Currency.valueOf(cells(indices("Currency2")))), BigDecimal(cells(indices("Rate"))))
+                })
+              }
+          (a, b) = x }
+          yield a
     }
-
-    import collection.JavaConverters._
-    def readAllLines(pathToRates: String): Program[Stream[String]]
-     = Program.eitherIO {
-      effect.IO {
-        for (r <- Option(getClass.getResource(pathToRates)).toRightDisjunction[E](NoSuchResource(pathToRates)); x <- \/.fromTryCatchNonFatal(Files.readAllLines(Paths.get(r.toURI))).leftMap(IOException)) yield x
-      }
-    } map (_.asScala.toStream)
 
     case class Csv(indices: Map[String, Int], rows: Stream[String]) {
       def parse[S, A](processRow: Map[String, Int] => String => State[S, A])(s: S): Program[(S, List[A])] = {
@@ -91,14 +92,21 @@ object SanityCheckRatesPeriodically extends App with Logged {
       }
 
     def brokerRates: Program[Rates] =
-      for (p <- Program.reads(_.pathToRates); ls <- readAllLines(p); csv <- toCsv(ls); x <- csv parseZero { indices => line =>
-      State.modify[Rates](rs => {
-        val cells = line.split(",")
-        rs + (Currency.valueOf(cells(indices("TradedCurrency"))), Currency.USD, BigDecimal(cells(indices("Rate (USD)"))))
-      })
-    }; (a, b) = x) yield a
+      for  {
+        s <- Program.reads(_.pathToRates)
+        p <- Program.either(Option(getClass.getResource(s)).toRightDisjunction[E](NoSuchResource(s)))
+        ls <- IOUtil.readAllLines[({type l[a, b] = EitherT[M, a, b]})#l](Paths get p.toURI)(EitherT.eitherTMonadError[M, Throwable], IOUtil.eitherTMonadCatchIO[M, Throwable](IOUtil.rwstMonadCatchIO[effect.IO, Config, Unit, Unit])).leftMap(ioException)
+        csv <- toCsv(ls.toStream)                                                         // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        x <- csv parseZero { indices => line =>
+          State.modify[Rates](rs => {
+            val cells = line.split(",")
+            rs + (Currency.valueOf(cells(indices("TradedCurrency"))), Currency.USD, BigDecimal(cells(indices("Rate (USD)"))))
+          })
+        }
+        (a, b) = x
+      } yield a
 
-    def sanitized(o: OfficialRates, b: Map[Currency, BigDecimal]) = b //for simplicity, for now
+    def sanitized(o: OfficialRates, b: Map[Currency, BigDecimal]) = b
 
     val rates =
       for {
@@ -133,60 +141,7 @@ object SanityCheckRatesPeriodically extends App with Logged {
       }
     }, 0, 15, TimeUnit.MINUTES)
 
-  //What have we done here?
-  //
-  // 1. We have a single piece of mutable state, protected in an atomic reference
-  // 2. We compose a program as a state transition which can be applied to that state
-  //     You might envisage that you are running an HTTP server and each request maps to some state-transition action
-  //     You could atomically attempt the action and serve up the response
 
 
-  Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(new Runnable {
-    override def run() = {
-      type ST[A] = StateT[effect.IO, Map[Currency, BigDecimal], A]
-      val et: EitherT[ST, E, Unit] = {
-        //EitherT with the error type fixed as our E. This satisfies the kind required by Hoist/MonadTrans
-        type ET[F[_], A] = EitherT[F, E, A]
-
-        //StateT with Unit as the state type. We use this as the type of the intermediate step in which we have transformed `rates` to use StateT
-        //instead of RWST
-        type ST_[A] = StateT[effect.IO, Unit, A]
-
-        //This lets us turn any M[A] into an ST_[A], for any A
-        val rwstToStateTUnit: M ~> ST_ = new (M ~> ST_) {
-          override def apply[A](fa: M[A]): ST_[A] = fa.state(cfg)
-        }
-
-        //If we have a Lens[S1, S2] then we can turn a StateT[F, S2, A] into a StateT[F, S1, A].
-        //You can think of this as the 'smaller' state (S2) function operating on the S2 part of the 'larger' state (S1), and then updating the
-        //S2 part of the S1 originally passed to it when it is finished. To turn an ST_ into an ST, we need a Lens[Map[Currency, BigDecimal], Unit].
-        val stateTUnitToStateTS: ST_ ~> ST = new (ST_ ~> ST) {
-          override def apply[A](fa: ST_[A]): ST[A] = fa.zoom(LensFamily.trivialLens)
-        }
-
-        //We can compose natural transformations. This lets us turn any M[A] into an ST[A], for any A
-        val rwstToStateTS: M ~> ST = stateTUnitToStateTS.compose(rwstToStateTUnit)
-
-        //We can alter the monad inside a monad transformer using a Hoist, if we have a natural transformation from the original inner monad to
-        //the resulting inner monad. We can use this function to turn `rates` (which is an ET[M, A]) into an ET[ST, A], which is the shape we
-        //need for the result.
-        def transform[A]: NaturalTransformation[({type l[a]=ET[M, a]})#l, ({type l[a]=ET[ST, a]})#l] = Hoist[ET].hoist[M, ST](rwstToStateTS)
-
-        //We also need to update the state. We can get a ST[Unit] that does this, but we need to lift it into an ET[ST, Unit].
-        //MonadTrans[ET] will let us do this. It can turn any N[A] into an ET[N, A], if M is a monad
-        val M = StateT.stateTMonadState[Map[Currency, BigDecimal], effect.IO]
-        def update(state: Map[Currency, BigDecimal]): ET[ST, Unit] = MonadTrans[ET].liftMU(M.put(state))
-
-        for {
-          state <- transform(rates)
-          _ <- update(state)
-        } yield ()
-      }
-
-      val update =
-        state.testAndSet[effect.IO, E, Unit](m => effect.IO { m.isEmpty })(et)
-      update.run.unsafePerformIO().valueOr(e => warning(e.toString))
-    }
-  }, 0, 15, TimeUnit.MINUTES)
 
 }
