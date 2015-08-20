@@ -3,7 +3,7 @@ package oxbow.part2.exceptions.disjunction2
 import java.nio.file.{Paths, Files}
 
 import scalaz._; import Scalaz._
-object ScalazDisjunction3 extends App {
+object ScalazDisjunction2 extends App {
 
   sealed trait E
   case class MissingProperty(k: String) extends E

@@ -5,7 +5,7 @@ import java.nio.file.{Files, Paths}
 
 import scalaz._
 
-object ScalazDisjunction2 extends App {
+object ScalazDisjunction1b extends App {
   private val pathToReader: String = "/path/to/file"
 
   def example1(): Unit = {
@@ -49,7 +49,6 @@ object ScalazDisjunction2 extends App {
   }
 
   private def findReaderNio2(): FileNotFoundException \/ java.io.Reader = {
-    //Oh dear, this is still borked. Compiler is not helping
     \/.fromTryCatchNonFatal(Files.newBufferedReader(Paths.get(pathToReader))).leftMap(t => new FileNotFoundException(s"$pathToReader: ${t.getMessage}"))
   }
 

@@ -5,7 +5,7 @@ import java.nio.file.{Files, Paths}
 
 import scalaz._
 
-object ScalazDisjunction1 extends App {
+object ScalazDisjunction1a extends App {
   private val pathToReader: String = "/path/to/file"
 
   def example1(): Unit = {
