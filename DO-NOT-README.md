@@ -30,7 +30,7 @@ Statement (SLIDE)
    - so what *can* we use?
 
 ## Scalaz and \/
-  - `disjunction1`. Cannot use `try/catch`. Must catch all throwables/non-fatals (5 minutes, 18)
+  - `disjunction1`. Cannot use `try/catch`. Must catch all throwables/non-fatals (5 minutes, 18) [disjunction1](src/main/scala/oxbow/part1/exceptions/disjunction1/ScalazDisjunction1a)
   - `disjunction2`. Using the methods `map/flatMap/getOrElse/orElse` etc for control flow. Should be very simple (similarly with how we program with Option) (5 minutes, 23)
                                                                                                                                                                            
   - `disjunction3`. A "real world example" - it's pretty easy to forget to use `\/.fromTryCatch` for Java calls. You have to be rigorous (5 minutes, 28)  
