@@ -29,14 +29,10 @@ object Csv {
 import Csv._
 case class Csv(indices: Map[Header, Csv.Index], rows: Stream[String]) {
   def parse[M[_, _], E, S, A](line: Map[Header, Cell] => State[S, A])(s: S)(mapError: Throwable => E)(implicit M: MonadError[M, E]): M[E, (S, List[A])] = {
-
-    val a: Throwable \/ (S, List[A]) =
-      \/.fromTryCatchNonFatal(rows.toList.traverseU({ l =>
-        val cells = l.split(",")
-        line(indices.mapValues(cells))
-      }).run(s))
-
-    a.fold(mapError andThen M.raiseError, x => M.point(x))
+    \/.fromTryCatchNonFatal(rows.toList traverseU { l =>
+      val cells = l.split(",")
+      line(indices mapValues cells)
+    } run s).fold(t => M raiseError mapError(t), M point _)
   }
 
   def parseZero[M[_, _], E, S, A](line: Map[Header, Cell] => State[S, A])(mapError: Throwable => E)(implicit M: MonadError[M, E], S: Monoid[S]): M[E, (S, List[A])]
