@@ -37,7 +37,7 @@ Statement (SLIDE)
 
 ## State
   - As we start to write more complicated programs, it becomes necessary for us to interleave State transitions, calculations with failures
-    - [disjunction3](src/main/scala/oxbow/part3/state/state1/ReadFxRates.scala) Simple modification of the program (3 minutes, 31)
+    - [state](src/main/scala/oxbow/part3/state/state1/ReadFxRates.scala) Simple modification of the program (3 minutes, 31)
 
 (maybe leave out [state2](src/main/scala/oxbow/part3/state/state2/ReadMultipleTradesAndRates.scala))
 
