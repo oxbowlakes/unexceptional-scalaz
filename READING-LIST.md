@@ -4,4 +4,5 @@
  - [Learning Scalaz](http://eed3si9n.com/learning-scalaz/) - series of Blog Posts by Eugene Yokota about learning the scalaz library
  - [Functional Programming in Scala](https://github.com/fpinscala/fpinscala) - book by Runar Bjarnasson and Paul Chiusano
  - What does Monad Mean? Great [paper](https://dl.dropboxusercontent.com/u/7810909/docs/what-does-monad-mean/what-does-monad-mean/pdf/index.pdf) and [talk](https://vimeo.com/8729673) by Tony Morris (particularly the piece on pp9-10 on transforming an imperative program)
+ - [Dependency Injection Without the Gymnastics](https://web.archive.org/web/20130722051228/http:/phillyemergingtech.com/2012/system/presentations/di-without-the-gymnastics.pdf) again by Tony Morris
  
