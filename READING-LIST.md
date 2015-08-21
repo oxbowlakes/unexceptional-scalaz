@@ -1,4 +1,4 @@
- # Reading List
+# Reading List
  
  - [Deriving Scalaz](https://vimeo.com/10482466) - talk given by Nick Partridge in Melbourne, 2010
  - [Learning Scalaz](http://eed3si9n.com/learning-scalaz/) - series of Blog Posts by Eugene Yokota about learning the scalaz library
