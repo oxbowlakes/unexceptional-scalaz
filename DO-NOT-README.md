@@ -12,7 +12,7 @@ Statement (SLIDE)
   - JAVA EXAMPLE (talk about the fact that exceptions are part of the type signature of a method)
     - cannot add exceptions in subclasses
     - forced to handle checked exceptions
-    - cannot handle checked exceptions which are not throws
+    - cannot handle *checked* exceptions which are not thrown within the `try/catch` block
 
 5 minutes (8)
 
