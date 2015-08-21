@@ -67,17 +67,6 @@ object IOUtil {
   }
 
   implicit def rwstMonadCatchIO[M[_]: MonadCatchIO, R, W: Monoid, S] = new MonadCatchIO[({type l[a] = RWST[M, R, W, S, a]})#l] {
-    val RWSTTMonadIO: MonadIO[({type l[a] = RWST[M, R, W, S, a]})#l] = new MonadIO[({type l[a] = RWST[M, R, W, S, a]})#l] {
-      override def point[A](a: => A) = RWST.rwstMonad[M, R, W, S].point(a)
-
-      override def bind[A, B](fa: RWST[M, R, W, S, A])(f: (A) => RWST[M, R, W, S, B]) = RWST.rwstMonad[M, R, W, S].bind(fa)(f)
-
-      override def liftIO[A](ioa: IO[A]) = RWST[M, R, W, S, A]{ (r, s) =>
-        val M = MonadIO[M]
-        M.liftIO(ioa).map(a => (Monoid[W].zero, a, s))
-      }
-    }
-
     override def except[A](ma: RWST[M, R, W, S, A])(handler: (Throwable) => RWST[M, R, W, S, A]) = RWST[M, R, W, S, A]{ (r, s) =>
       val M = MonadCatchIO[M]
       M.bind(M.except(ma.run(r, s) map { \/.right[Throwable, (W, A, S)] })(t => M.point(-\/(t)))) {
@@ -86,9 +75,12 @@ object IOUtil {
       }
     }
 
-    override def point[A](a: => A) = RWSTTMonadIO.point(a)
-    override def bind[A, B](fa: RWST[M, R, W, S, A])(f: (A) => RWST[M, R, W, S, B]) = RWSTTMonadIO.bind(fa)(f)
-    override def liftIO[A](ioa: IO[A]) = RWSTTMonadIO.liftIO(ioa)
+    override def point[A](a: => A) = RWST.rwstMonad[M, R, W, S].point(a)
+    override def bind[A, B](fa: RWST[M, R, W, S, A])(f: (A) => RWST[M, R, W, S, B]) = RWST.rwstMonad[M, R, W, S].bind(fa)(f)
+    override def liftIO[A](ioa: IO[A]) = RWST[M, R, W, S, A]{ (r, s) =>
+      val M = MonadIO[M]
+      M.liftIO(ioa).map(a => (Monoid[W].zero, a, s))
+    }
   }
 
 }

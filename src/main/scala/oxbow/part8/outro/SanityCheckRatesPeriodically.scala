@@ -170,10 +170,10 @@ object SanityCheckRatesPeriodically extends App with Logged {
         //We can alter the monad inside a monad transformer using a Hoist, if we have a natural transformation from the original inner monad to
         //the resulting inner monad. We can use this function to turn `rates` (which is an ET[M, A]) into an ET[ST, A], which is the shape we
         //need for the result.
-        def transform[A]: NaturalTransformation[({type l[a]=ET[M, a]})#l, ({type l[a]=ET[ST, a]})#l] = Hoist[ET].hoist[M, ST](rwstToStateTS)
+        val transform: NaturalTransformation[({type l[a]=ET[M, a]})#l, ({type l[a]=ET[ST, a]})#l] = Hoist[ET].hoist[M, ST](rwstToStateTS)
 
         //We also need to update the state. We can get a ST[Unit] that does this, but we need to lift it into an ET[ST, Unit].
-        //MonadTrans[ET] will let us do this. It can turn any N[A] into an ET[N, A], if M is a monad
+        //MonadTrans[ET] will let us do this. It can turn any N[A] into an ET[N, A], if N is a monad
         val M = StateT.stateTMonadState[Map[Currency, BigDecimal], effect.IO]
         def update(state: Map[Currency, BigDecimal]): ET[ST, Unit] = MonadTrans[ET].liftMU(M.put(state))
 
