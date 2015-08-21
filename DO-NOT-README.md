@@ -30,16 +30,16 @@ Statement (SLIDE)
    - so what *can* we use?
 
 ## Scalaz and \/
-  - `disjunction1`. Cannot use `try/catch`. Must catch all throwables/non-fatals (5 minutes, 18) [disjunction1](src/main/scala/oxbow/part2/exceptions/disjunction1/ScalazDisjunction1a.scala)
-  - `disjunction2`. Using the methods `map/flatMap/getOrElse/orElse` etc for control flow. Should be very simple (similarly with how we program with Option) (5 minutes, 23)
+  - [disjunction1](src/main/scala/oxbow/part2/exceptions/disjunction1/ScalazDisjunction1a.scala). Cannot use `try/catch`. Must catch all throwables/non-fatals (5 minutes, 18) 
+  - [disjunction2](src/main/scala/oxbow/part2/exceptions/disjunction2/ScalazDisjunction2.scala). Using the methods `map/flatMap/getOrElse/orElse` etc for control flow. Should be very simple (similarly with how we program with Option) (5 minutes, 23)
                                                                                                                                                                            
-  - `disjunction3`. A "real world example" - it's pretty easy to forget to use `\/.fromTryCatch` for Java calls. You have to be rigorous (5 minutes, 28)  
+  - [disjunction3](src/main/scala/oxbow/part2/exceptions/disjunction3/ReadFxRates.scala). A "real world example" - it's pretty easy to forget to use `\/.fromTryCatch` for Java calls. You have to be rigorous (5 minutes, 28)  
 
 ## State
   - As we start to write more complicated programs, it becomes necessary for us to interleave State transitions, calculations with failures
-    - `state1` Simple modification of the program (3 minutes, 31)
+    - [disjunction3](src/main/scala/oxbow/part3/state/state1/ReadFxRates.scala) Simple modification of the program (3 minutes, 31)
 
-(maybe leave out `state2`)
+(maybe leave out [state2](src/main/scala/oxbow/part3/state/state2/ReadMultipleTradesAndRates.scala))
 
   - We're going to start looking later at state transitions which themselves may fail
 
@@ -54,7 +54,7 @@ Statement (SLIDE)
   - We have hijacked the return type of our functions to describe only one aspect of that function's interaction with the real world
  - there are other aspects (State being one, reading from config being another)
 
- - We can embed these concerns in the very type of our program (`part4.reader`) (5 minutes, 41)
+ - We can embed these concerns in the very type of our program ([reader](src/main/scala/oxbow/part4/reader/SanityCheckRates.scala)) (5 minutes, 41)
   * We create a type plus some type constructors, based on a single base-combinator (5 minutes, 46)
 
 The strength of our program is now in how it is composed of small pieces that can all be individually-reasoned about
@@ -63,30 +63,31 @@ But what about IO? This is just global state. We cannot have referential transpa
 
 5 minutes (51)
 
-Let's take control of that (`part5.readert`) (3 minutes, 54)
+Let's take control of that ([ReaderT](src/main/scala/oxbow/part5/readert/SanityCheckRates.scala)) (3 minutes, 54)
 
 ## RWST  
   - Let's just throw the whole kitchen sink in and admit that our program is very possibly dealing with state as well   
-    * I tend to use `Unit` as `W` because accumulation of log messages is both unrealistic and annoying (when they are not interleaved with those of imperative APIs) (`part6.rwst`) (5 minutes, 61)
+    * I tend to use `Unit` as `W` because accumulation of log messages is both unrealistic and annoying (when they are not interleaved with those of imperative APIs) 
+    ([RWST](src/main/scala/oxbow/part6/rwst/SanityCheckRates.scala)) (5 minutes, 61)
 
   - The previous example has not really used State, so I want to think a little bit about how you might manage state in some  long-running program with a given set of interactions. 
-  One mechanism I use is to insert the global state into an atomic reference and apply state transitions to it (`part7.atomic`) (9 minutes, 70)
+  One mechanism I use is to insert the global state into an atomic reference and apply state transitions to it ([Atomic](src/main/scala/oxbow/part7/atomic/package.scala)) (9 minutes, 70)
   
   - We ....
     * construct a simple `testAndSet` (2 minutes)
     * extend our testAndSet to a simple State transition (with optional return) (2 minutes)
     * extend this to StateT in order that we can run our actions inside IO (5 minutes)
 
-But we haven't considered exceptions in this (`part8.outro`) (might gloss over the detail of pulling the StateT out of a RWST, suffice to say it's `state`)
+But we haven't considered exceptions in this ([outro](src/main/scala/oxbow/part8/outro/SanityCheckRatesPeriodically.scala)) (might gloss over the detail of pulling the StateT out of a RWST, suffice to say it's `state`)
 
 ## CONCLUSION 3
   - We can write our programs using `EitherT[RWST]` and embed failure-handling, state transitions and configuration
   - We can use interactions written as state transitions to run across actual mutable state held safely in an atomic reference
 
 But: this is an application. What does a library look like? How would you, for example, write an IO utility without knowing 
-the shape of the use case? (`part9.IOUtil`) (6 minutes, 76)
+the shape of the use case? ([IOUtil](src/main/scala/oxbow/part9/IOUtil.scala)) (6 minutes, 76)
 
 ## Putting it all together
-  - There's a lot of boilerplate for any program. How do we get rid of that? (`part999.Program`) (3 minutes, 79)
-  - Let's pull out our little CSV class into a library (`part999.Csv`) (3 minutes, 82)
-  - Our actual program now becomes quite simple and isolated
+  - There's a lot of boilerplate for any program. How do we get rid of that? ([Program](src/main/scala/oxbow/part999/Program.scala)) (3 minutes, 79)
+  - Let's pull out our little CSV class into a library ([CSV](src/main/scala/oxbow/part999/Csv.scala)) (3 minutes, 82)
+  - Our actual program now becomes quite simple and isolated ([SanityCheckRates](src/main/scala/oxbow/part999/SanityCheckRates.scala))
